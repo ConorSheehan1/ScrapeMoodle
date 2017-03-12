@@ -8,7 +8,7 @@ from secret import Secret
 
 
 class Moodle:
-	def __init__(self, login_url, username, password, details=True, debug=True, parser="lxml", download=True):
+	def __init__(self, login_url, username, password, details=True, debug=True, parser="lxml", download=True, overwrite=False):
 		'''
 		:param login_url:
 		:param username:
@@ -17,6 +17,7 @@ class Moodle:
 		:param debug: use to show errors and unsuccessful downloads
 		:param parser: change parse for beautiful soup
 		:param download: actually download pdfs
+		:param download: overwrite pdfs if they already exist
 		:return:
 		'''
 		# place holder for saving pdfs to correct folder
@@ -25,6 +26,8 @@ class Moodle:
 		self.debug = debug
 		self.parser = parser
 		self.download = download
+		self.overwrite = overwrite
+
 		self.successful = 0
 		self.unsuccessful = 0
 		self.session_requests = requests.session()
@@ -69,20 +72,22 @@ class Moodle:
 		return title
 
 	def download_pdf(self, title, url):
-		try:
-			if not title.endswith(".pdf"):
-				title += ".pdf"
+		if not title.endswith(".pdf"):
+			title += ".pdf"
 
-			# it's escapes all the way down
-			# title = title.replace("\\", "").replace("/", "").replace(",", "")
-			title = re.sub(r"\W,", "")
+		# it's escapes all the way down
+		# title = title.replace("\\", "").replace("/", "").replace(",", "")
+		# remove anything other than word characters, spaces - _ .
+		title = re.sub(r"[^\w\s\-\._]*", "", title)
 
+		if self.details:
+			print(Fore.GREEN, "pdf downloading", title, url)
+
+		# if the file doesn't exist or overwrite is set to true, download the file
+		if not os.path.exists(self.folder + title) or self.overwrite:
 			r = self.session_requests.get(url)
 			with open(self.folder + title, "wb") as pdffile:
 				pdffile.write(r.content)
-			self.successful += 1
-		except:
-			self.unsuccessful += 1
 
 	def find_pdfs(self, url, visited=()):
 		'''
@@ -93,6 +98,8 @@ class Moodle:
 		:param debug: print error messages if true
 		:return:
 		'''
+		# keep list of things to visit (folders, assignments)
+		to_visit = []
 
 		# add current link to visited
 		visited += (url,)
@@ -106,17 +113,17 @@ class Moodle:
 					pdf_url = self.parse_link(current)
 					error = "title"
 					title = self.parse_title(current)
-					if self.details:
-						print(Fore.GREEN, "pdf downloading", title, pdf_url)
 					if self.download:
 						self.download_pdf(title, pdf_url)
+						self.successful += 1
 
 				# if regex fails to parse pdf link
 				except IndexError:
+					self.unsuccessful += 1
 					if self.debug:
 						print(Fore.RED, "failed: pdf, error parsing", error, current)
 
-			elif "folder" in current:
+			elif "folder" in current or "Assignment" in current:
 				try:
 					new_link = self.parse_link(current)
 
@@ -128,17 +135,21 @@ class Moodle:
 
 				# if parsed folder link is not the url the method was called on
 				if new_link not in visited:
-					if self.details:
-						print(Fore.YELLOW, "visiting folder", new_link)
-					return self.find_pdfs(new_link, visited)
+					to_visit.append(new_link)
+
+		# visit subfolders
+		for sub_link in to_visit:
+			if self.details:
+				print(Fore.YELLOW, "visiting folder", sub_link)
+			return self.find_pdfs(sub_link, visited)
 
 	def get_comp_modules(self):
 		# # get all the links to other COMP courses you're enrolled in from the home page
 		for link in BeautifulSoup(self.login_result.content, self.parser, parse_only=SoupStrainer('a')):
 			current = str(link)
 			if 'title="COMP' in current:
-				# match after title=" and accept anything other than a quote
-				module_code = re.findall(r'(?<=title=")[^"]*', current)[0]
+				# match after title=" and accept anything other than a quote, remove spaces
+				module_code = re.findall(r'(?<=title=")[^"]*', current)[0].replace(" ", "")
 				# set current folder to name of module code
 				self.folder = module_code + "/"
 				href = self.parse_link(current)
@@ -153,8 +164,8 @@ class Moodle:
 
 
 colorama.init()
-m = Moodle("https://csmoodle.ucd.ie/moodle/login/index.php", Secret.username, Secret.password, download=False, debug=False, details=True)
-# m = Moodle("https://csmoodle.ucd.ie/moodle/login/index.php", Secret.username, Secret.password)
+# m = Moodle("https://csmoodle.ucd.ie/moodle/login/index.php", Secret.username, Secret.password, download=False, debug=False, details=True)
+m = Moodle("https://csmoodle.ucd.ie/moodle/login/index.php", Secret.username, Secret.password)
 m.get_comp_modules()
 print(m)
 
