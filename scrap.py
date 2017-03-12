@@ -8,22 +8,25 @@ from secret import Secret
 
 
 class Moodle:
-	def __init__(self, login_url, username, password, details=True, debug=True, parser="lxml", download=True, overwrite=False):
+	def __init__(self, login_url, username, password, details=True, parser="lxml", download=True, overwrite=False):
 		'''
-		:param login_url:
-		:param username:
-		:param password:
-		:param details: use to show successful downloads
-		:param debug: use to show errors and unsuccessful downloads
-		:param parser: change parse for beautiful soup
+		:param details: print what's happening to the console
+		:param parser: parse for beautiful soup (lxml by default)
 		:param download: actually download pdfs
 		:param download: overwrite pdfs if they already exist
 		:return:
 		'''
+		# set color for console
+		colorama.init()
+
 		# place holder for saving pdfs to correct folder
 		self.folder = ""
+		self.base_folder = "moodle_download/"
+
+		if not os.path.exists(self.base_folder):
+			os.mkdir(self.base_folder)
+
 		self.details = details
-		self.debug = debug
 		self.parser = parser
 		self.download = download
 		self.overwrite = overwrite
@@ -47,8 +50,8 @@ class Moodle:
 			print(Fore.RED, "login unsuccessful", self.login_result.status_code)
 
 	def __repr__(self):
-		return Fore.GREEN +"Successfully downloaded\t {0} pdfs\n".format(self.successful) + Fore.RED\
-			   + "Failed to download\t {0} pdfs\n".format(self.unsuccessful)
+		return Fore.GREEN + "\n\n\tSuccessfully downloaded\t {0:5} pdfs\n".format(self.successful) + Fore.RED\
+				+ "\tFailed to download\t {0:5} pdfs\n".format(self.unsuccessful)
 
 	@staticmethod
 	def parse_link(url):
@@ -81,12 +84,12 @@ class Moodle:
 		title = re.sub(r"[^\w\s\-\._]*", "", title)
 
 		if self.details:
-			print(Fore.GREEN, "pdf downloading", title, url)
+			print(Fore.GREEN, "downloading", title, url)
 
 		# if the file doesn't exist or overwrite is set to true, download the file
 		if not os.path.exists(self.folder + title) or self.overwrite:
 			r = self.session_requests.get(url)
-			with open(self.folder + title, "wb") as pdffile:
+			with open(self.base_folder + self.folder + title, "wb") as pdffile:
 				pdffile.write(r.content)
 
 	def find_pdfs(self, url, visited=()):
@@ -94,8 +97,6 @@ class Moodle:
 
 		:param url: address to scrape pdfs from
 		:param visited: list of folders visited
-		:param details: print what's being visited and downloaded
-		:param debug: print error messages if true
 		:return:
 		'''
 		# keep list of things to visit (folders, assignments)
@@ -120,8 +121,8 @@ class Moodle:
 				# if regex fails to parse pdf link
 				except IndexError:
 					self.unsuccessful += 1
-					if self.debug:
-						print(Fore.RED, "failed: pdf, error parsing", error, current)
+					if self.details:
+						print(Fore.RED, "failed: error parsing", error, current)
 
 			elif "folder" in current or "Assignment" in current:
 				try:
@@ -129,7 +130,7 @@ class Moodle:
 
 				# if regex fails, skip iteration in loop
 				except IndexError:
-					if self.debug:
+					if self.details:
 						print(Fore.RED, "failed: folder", current)
 					continue
 
@@ -149,24 +150,21 @@ class Moodle:
 			current = str(link)
 			if 'title="COMP' in current:
 				# match after title=" and accept anything other than a quote, remove spaces
-				module_code = re.findall(r'(?<=title=")[^"]*', current)[0].replace(" ", "")
 				# set current folder to name of module code
-				self.folder = module_code + "/"
+				self.folder = re.findall(r'(?<=title=")[^"]*', current)[0].replace(" ", "") + "/"
 				href = self.parse_link(current)
 
-				if not os.path.exists(module_code) and self.download:
-					os.mkdir(module_code)
+				if not os.path.exists(self.base_folder + self.folder) and self.download:
+					os.mkdir(self.base_folder + self.folder)
 
 				if self.details:
-					print(Fore.BLUE, module_code, href)
+					print(Fore.BLUE, self.folder, href)
 
 				self.find_pdfs(href)
 
-
-colorama.init()
-# m = Moodle("https://csmoodle.ucd.ie/moodle/login/index.php", Secret.username, Secret.password, download=False, debug=False, details=True)
-m = Moodle("https://csmoodle.ucd.ie/moodle/login/index.php", Secret.username, Secret.password)
-m.get_comp_modules()
-print(m)
+if __name__ == "__main__":
+	m = Moodle("https://csmoodle.ucd.ie/moodle/login/index.php", Secret.username, Secret.password)
+	m.get_comp_modules()
+	print(m)
 
 

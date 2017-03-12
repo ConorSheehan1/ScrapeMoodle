@@ -5,3 +5,4 @@ secret*
 
 *.pdf
 /venv
+/moodle_download
