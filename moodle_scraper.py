@@ -5,7 +5,11 @@ import colorama
 from colorama import Fore
 import os
 import time
-from secret import Secret
+
+try:
+	from secret import Secret
+except ImportError:
+	print("Please run setup.py or follow the instructions in the readme to create secret.py")
 
 
 class Moodle:
@@ -59,10 +63,9 @@ class Moodle:
 		self.start_time = time.clock()
 
 	def __repr__(self):
-		return Fore.GREEN + "\n\n\tSuccessfully downloaded\t {0:5} pdfs\n".format(self.successful) + Fore.RED\
-			   + "\tFailed to download\t {0:5} pdfs\n".format(self.unsuccessful)\
-			   + "\tTime elapsed:\t\t {:.2f} seconds".format(time.clock()-self.start_time)
-
+		return Fore.GREEN + "\n\n\tSuccessfully downloaded\t {0:8} pdfs\n".format(self.successful) + Fore.RED\
+			   + "\tFailed to download\t {0:8} pdfs\n".format(self.unsuccessful)\
+			   + Fore.WHITE + "\tTime elapsed: {:.2f} seconds".format(time.clock()-self.start_time)
 
 	@staticmethod
 	def parse_link(url):
@@ -101,7 +104,7 @@ class Moodle:
 				pdffile.write(r.content)
 
 			if self.details:
-				print(Fore.GREEN + "downloaded", title, "\n", url)
+				print(Fore.GREEN + "downloaded", title, "\n" + url)
 
 	def find_pdfs(self, url, visited=()):
 		'''
@@ -177,5 +180,3 @@ if __name__ == "__main__":
 	m = Moodle("https://csmoodle.ucd.ie/moodle/login/index.php", Secret.username, Secret.password)
 	m.get_comp_modules()
 	print(m)
-
-
