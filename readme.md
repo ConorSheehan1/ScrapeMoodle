@@ -5,10 +5,10 @@
 
 ## Output
 1. Typical output should look something like this
-![example.png](/img/example.png)
+![example.png](img/example.png)
 
 2. If the program exits successfully you will receive the following message
-![success.png](/img/success.png)
+![success.png](img/success.png)
 
 ## constructor settings
 (Moodle.\_\_init\_\_())
@@ -26,7 +26,10 @@
 
 ## errors
 A typical error when downloading a file is quite large. This is because I decided to leave the entire html as is, in case the error is caused by parsing the html. This way, not matter what went wrong, you get all the html the script was trying to parse.
-![typical_error.png](/img/error.png)
+![typical_error.png](img/error.png)
 
 If you have an incorrect username or password you should receive the following error
-![credential_error.png](/img/credential_error.png)
+![credential_error.png](img/credential_error.png)
+
+If you use an incorrect link or the server doesn't respond you should receive something like this
+![login_error.png](img/login_error.png)
