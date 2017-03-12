@@ -4,6 +4,7 @@ from bs4 import BeautifulSoup, SoupStrainer
 import colorama
 from colorama import Fore
 import os
+import time
 from secret import Secret
 
 
@@ -49,9 +50,14 @@ class Moodle:
 		else:
 			print(Fore.RED, "login unsuccessful", self.login_result.status_code)
 
+		# start timing
+		self.start_time = time.clock()
+
 	def __repr__(self):
 		return Fore.GREEN + "\n\n\tSuccessfully downloaded\t {0:5} pdfs\n".format(self.successful) + Fore.RED\
-				+ "\tFailed to download\t {0:5} pdfs\n".format(self.unsuccessful)
+			   + "\tFailed to download\t {0:5} pdfs\n".format(self.unsuccessful)\
+			   + "\tTime elapsed:\t\t {:.2f} seconds".format(time.clock()-self.start_time)
+
 
 	@staticmethod
 	def parse_link(url):
@@ -83,14 +89,14 @@ class Moodle:
 		# remove anything other than word characters, spaces - _ .
 		title = re.sub(r"[^\w\s\-\._]*", "", title)
 
-		if self.details:
-			print(Fore.GREEN, "downloading", title, url)
-
 		# if the file doesn't exist or overwrite is set to true, download the file
 		if not os.path.exists(self.folder + title) or self.overwrite:
 			r = self.session_requests.get(url)
 			with open(self.base_folder + self.folder + title, "wb") as pdffile:
 				pdffile.write(r.content)
+
+			if self.details:
+				print(Fore.GREEN, "downloaded", title, "\n", url)
 
 	def find_pdfs(self, url, visited=()):
 		'''
@@ -122,7 +128,7 @@ class Moodle:
 				except IndexError:
 					self.unsuccessful += 1
 					if self.details:
-						print(Fore.RED, "failed: error parsing", error, current)
+						print(Fore.RED, "error parsing", error, current)
 
 			elif "folder" in current or "Assignment" in current:
 				try:
@@ -131,7 +137,7 @@ class Moodle:
 				# if regex fails, skip iteration in loop
 				except IndexError:
 					if self.details:
-						print(Fore.RED, "failed: folder", current)
+						print(Fore.RED, "error parsing folder", current)
 					continue
 
 				# if parsed folder link is not the url the method was called on
@@ -145,7 +151,7 @@ class Moodle:
 			return self.find_pdfs(sub_link, visited)
 
 	def get_comp_modules(self):
-		# # get all the links to other COMP courses you're enrolled in from the home page
+		# get all the links to other COMP courses you're enrolled in from the home page
 		for link in BeautifulSoup(self.login_result.content, self.parser, parse_only=SoupStrainer('a')):
 			current = str(link)
 			if 'title="COMP' in current:
@@ -158,7 +164,7 @@ class Moodle:
 					os.mkdir(self.base_folder + self.folder)
 
 				if self.details:
-					print(Fore.BLUE, self.folder, href)
+					print(Fore.WHITE, self.folder, href)
 
 				self.find_pdfs(href)
 
